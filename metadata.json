@@ -1,0 +1,6 @@
+{
+  "name": "RetainIQ - Academic Analytics System",
+  "description": "An AI-powered academic analytics platform that predicts student dropout risks, monitors academic performance, and tracks early intervention strategies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
