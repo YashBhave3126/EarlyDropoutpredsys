@@ -8,11 +8,13 @@ datasource db {
 }
 
 model Faculty {
-  id         String @id @default(uuid())
+  id         String   @id @default(uuid())
   name       String
   department String
-  email      String @unique
+  email      String   @unique
   password   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Student {
@@ -39,6 +41,9 @@ model Student {
   riskReasons          Json
   recommendations      Json
 
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
   interventions        Intervention[]
 }
 
@@ -47,19 +52,24 @@ model Intervention {
   rollNumber            String
   studentName           String
   type                  String
-  createdDate           String
+  createdDate           DateTime @default(now())
   remarks               String   @db.Text
   status                String
-  followUpDate          String
+  followUpDate          DateTime
   improvementPercentage Int      @default(0)
   facultyName           String
   
   student               Student  @relation(fields: [rollNumber], references: [rollNumber])
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model Admin {
-  id       String @id @default(uuid())
-  email    String @unique
-  password String
-  name     String
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -353,8 +353,8 @@ export default function LandingPage({
           </div>
 
           <div className="relative">
-            {/* Black connecting line running behind the boxes */}
-            <div className="absolute top-1/2 left-8 right-8 h-1.5 bg-black -translate-y-1/2 z-0 hidden md:block rounded-full shadow-sm" />
+            {/* Connecting line running behind the boxes */}
+            <div data-reveal="fade" className="absolute top-1/2 left-8 right-8 h-1.5 bg-slate-200 -translate-y-1/2 z-0 hidden md:block rounded-full shadow-sm" />
 
             <div data-reveal-cards className="grid md:grid-cols-3 gap-8 relative z-10">
               <div data-reveal-card className="p-6 rounded-2xl bg-[#223de4] text-white border border-blue-500/30 shadow-xl hover:-translate-y-1 transition-all duration-300 relative z-10">
@@ -662,7 +662,7 @@ export default function LandingPage({
 
           <div className="relative">
             {/* Connecting line running behind the boxes */}
-            <div className="absolute top-1/2 left-8 right-8 h-1.5 bg-black -translate-y-1/2 z-0 hidden lg:block rounded-full shadow-sm" />
+            <div data-reveal="fade" className="absolute top-1/2 left-8 right-8 h-1.5 bg-blue-500 -translate-y-1/2 z-0 hidden lg:block rounded-full shadow-sm" />
 
             <div data-reveal-cards className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
               <div data-reveal-card className="p-6 bg-white text-slate-900 rounded-2xl border border-white/20 shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between relative z-10">

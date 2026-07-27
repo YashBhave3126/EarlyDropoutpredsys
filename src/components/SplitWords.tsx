@@ -8,7 +8,7 @@ import React from "react";
 interface SplitWordsProps {
   text: string;
   className?: string;
-  as?: keyof JSX.IntrinsicElements;
+  as?: React.ElementType;
 }
 
 /**
@@ -21,8 +21,7 @@ interface SplitWordsProps {
  * heading needs nested styled spans/line breaks, use data-reveal
  * on the whole block instead.
  */
-export default function SplitWords({ text, className, as = "span" }: SplitWordsProps) {
-  const Tag = as as any;
+export default function SplitWords({ text, className, as: Tag = "span" }: SplitWordsProps) {
   const words = text.split(" ");
 
   return (
