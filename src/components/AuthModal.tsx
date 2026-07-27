@@ -17,50 +17,53 @@ export default function AuthModal({ onClose, onLoginSuccess, initialRole }: Auth
   const [role, setRole] = useState<UserRole>((initialRole as UserRole) || UserRole.FACULTY);
   const [email, setEmail] = useState("");
   const [rollNumber, setRollNumber] = useState("");
-  const [password, setPassword] = useState("password");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [registerName, setRegisterName] = useState("");
   const [registerDept, setRegisterDept] = useState("Information Technology");
-
-  const handleDemoFill = (selectedRole: UserRole) => {
-    setRole(selectedRole);
-    if (selectedRole === UserRole.ADMIN) {
-      setEmail("admin@academy.edu");
-      setRollNumber("");
-    } else if (selectedRole === UserRole.FACULTY) {
-      setEmail("sandeep@academy.edu");
-      setRollNumber("");
-    } else {
-      setEmail("student@academy.edu");
-      setRollNumber("CS-2026-001");
-    }
-    setPassword("password");
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/login", {
+      const endpoint = isRegistering ? "/api/register" : "/api/login";
+      
+      const payload: any = {
+        role,
+        password,
+      };
+
+      if (role === UserRole.STUDENT) {
+        payload.rollNumber = rollNumber;
+      } else {
+        payload.email = email;
+      }
+
+      if (isRegistering) {
+        payload.name = registerName;
+        payload.department = registerDept;
+      }
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: role === UserRole.STUDENT ? rollNumber + "@academy.edu" : email,
-          role,
-          rollNumber,
-          password,
-          name: isRegistering ? registerName : undefined,
-          department: isRegistering ? registerDept : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
+      
       if (data.success) {
-        onLoginSuccess(data.user, data.token);
+        if (isRegistering) {
+          alert("Registration successful! You can now log in.");
+          setIsRegistering(false);
+          setPassword(""); // Clear password for login
+        } else {
+          onLoginSuccess(data.user, data.token);
+        }
       } else {
-        alert("Authentication failed.");
+        alert(data.error || "Authentication failed.");
       }
     } catch (error) {
       console.error(error);
@@ -96,7 +99,7 @@ export default function AuthModal({ onClose, onLoginSuccess, initialRole }: Auth
           <p className="text-xs text-slate-500 mt-1">
             {isRegistering 
               ? "Register a new account on the academic registry database." 
-              : "Enter your institutional credentials or select a demo role."}
+              : "Enter your secure institutional credentials to proceed."}
           </p>
         </div>
 
@@ -104,7 +107,7 @@ export default function AuthModal({ onClose, onLoginSuccess, initialRole }: Auth
         <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-100 rounded-xl mb-6">
           <button
             type="button"
-            onClick={() => handleDemoFill(UserRole.STUDENT)}
+            onClick={() => setRole(UserRole.STUDENT)}
             className={`py-2 text-xs font-semibold rounded-lg flex flex-col items-center gap-1 transition ${
               role === UserRole.STUDENT ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
             }`}
@@ -116,7 +119,7 @@ export default function AuthModal({ onClose, onLoginSuccess, initialRole }: Auth
 
           <button
             type="button"
-            onClick={() => handleDemoFill(UserRole.FACULTY)}
+            onClick={() => setRole(UserRole.FACULTY)}
             className={`py-2 text-xs font-semibold rounded-lg flex flex-col items-center gap-1 transition ${
               role === UserRole.FACULTY ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
             }`}
@@ -128,7 +131,7 @@ export default function AuthModal({ onClose, onLoginSuccess, initialRole }: Auth
 
           <button
             type="button"
-            onClick={() => handleDemoFill(UserRole.ADMIN)}
+            onClick={() => setRole(UserRole.ADMIN)}
             className={`py-2 text-xs font-semibold rounded-lg flex flex-col items-center gap-1 transition ${
               role === UserRole.ADMIN ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
             }`}
@@ -138,41 +141,6 @@ export default function AuthModal({ onClose, onLoginSuccess, initialRole }: Auth
             <span>Admin</span>
           </button>
         </div>
-
-        {/* Demo Quick login triggers */}
-        {!isRegistering && (
-          <div className="mb-6 p-3 bg-blue-50/70 border border-blue-100/50 rounded-xl">
-            <span className="block text-[10px] font-bold text-blue-700 uppercase tracking-widest mb-2 font-mono">
-              Evaluator Quick-Access:
-            </span>
-            <div className="flex gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => handleDemoFill(UserRole.STUDENT)}
-                className="px-2.5 py-1 text-xs bg-white hover:bg-slate-50 border border-blue-200 text-blue-700 rounded-lg transition font-medium"
-                id="demo_student_btn"
-              >
-                Demo Student
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoFill(UserRole.FACULTY)}
-                className="px-2.5 py-1 text-xs bg-white hover:bg-slate-50 border border-blue-200 text-blue-700 rounded-lg transition font-medium"
-                id="demo_faculty_btn"
-              >
-                Demo Faculty
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoFill(UserRole.ADMIN)}
-                className="px-2.5 py-1 text-xs bg-white hover:bg-slate-50 border border-blue-200 text-blue-700 rounded-lg transition font-medium"
-                id="demo_admin_btn"
-              >
-                Demo Admin
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Main form */}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -225,7 +193,7 @@ export default function AuthModal({ onClose, onLoginSuccess, initialRole }: Auth
             </div>
           )}
 
-          {isRegistering && (
+          {isRegistering && role !== UserRole.ADMIN && (
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Department</label>
               <select

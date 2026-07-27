@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Faculty {
+  id         String @id @default(uuid())
+  name       String
+  department String
+  email      String @unique
+  password   String
+}
+
+model Student {
+  rollNumber           String         @id
+  name                 String
+  department           String
+  semester             Int
+  attendance           Float
+  internalMarks        Float
+  semesterMarks        Float
+  assignmentsSubmitted Int
+  assignmentsTotal     Int
+  backlogs             Int
+  practicalMarks       Float
+  password             String
+  
+  // Stored as JSON strings/objects in MySQL
+  socioeconomic        Json
+  behavioral           Json
+  
+  // Machine Learning Prediction State
+  riskStatus           String         @default("Low")
+  riskConfidence       Int            @default(0)
+  riskReasons          Json
+  recommendations      Json
+
+  interventions        Intervention[]
+}
+
+model Intervention {
+  id                    String   @id @default(uuid())
+  rollNumber            String
+  studentName           String
+  type                  String
+  createdDate           String
+  remarks               String   @db.Text
+  status                String
+  followUpDate          String
+  improvementPercentage Int      @default(0)
+  facultyName           String
+  
+  student               Student  @relation(fields: [rollNumber], references: [rollNumber])
+}
+
+model Admin {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String
+  name     String
+}

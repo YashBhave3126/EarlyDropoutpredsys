@@ -9,8 +9,12 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 dotenv.config();
+
+const prisma = new PrismaClient();
 
 // Initialize Gemini SDK with telemetry header
 const apiKey = process.env.GEMINI_API_KEY;
@@ -27,8 +31,8 @@ const ai = isGeminiAvailable
     })
   : null;
 
-// In-Memory Database State
-const students = [
+// Initial Data for Seeding
+const initialStudents = [
   {
     rollNumber: "CS-2026-001",
     name: "Yash Bhave",
@@ -41,32 +45,12 @@ const students = [
     assignmentsTotal: 10,
     backlogs: 0,
     practicalMarks: 85,
-    socioeconomic: {
-      familyIncome: "Medium",
-      parentsEducation: "Bachelor",
-      distanceFromCollege: 5,
-      transportation: "Own Vehicle",
-      internetAvailability: true,
-      scholarship: false,
-    },
-    behavioral: {
-      studyHours: 18,
-      extracurricular: true,
-      healthIssues: false,
-      counselingSessions: 0,
-    },
+    socioeconomic: { familyIncome: "Medium", parentsEducation: "Bachelor", distanceFromCollege: 5, transportation: "Own Vehicle", internetAvailability: true, scholarship: false },
+    behavioral: { studyHours: 18, extracurricular: true, healthIssues: false, counselingSessions: 0 },
     riskStatus: "Low",
     riskConfidence: 94,
-    riskReasons: [
-      "Excellent attendance rate (88%) matches institutional guidelines.",
-      "High internal test average (82%) indicates strong concept retention.",
-      "Zero active backlogs ensures normal progression.",
-    ],
-    recommendations: [
-      "Continue existing study habits (18 hours/week).",
-      "Apply for summer technical internship or research fellowship.",
-      "Take leadership role in upcoming departmental hackathon.",
-    ],
+    riskReasons: ["Excellent attendance rate (88%) matches institutional guidelines.", "High internal test average (82%) indicates strong concept retention.", "Zero active backlogs ensures normal progression."],
+    recommendations: ["Continue existing study habits (18 hours/week).", "Apply for summer technical internship or research fellowship.", "Take leadership role in upcoming departmental hackathon."],
   },
   {
     rollNumber: "IT-2026-042",
@@ -80,32 +64,12 @@ const students = [
     assignmentsTotal: 10,
     backlogs: 1,
     practicalMarks: 65,
-    socioeconomic: {
-      familyIncome: "Low",
-      parentsEducation: "High School",
-      distanceFromCollege: 18,
-      transportation: "Public",
-      internetAvailability: true,
-      scholarship: true,
-    },
-    behavioral: {
-      studyHours: 8,
-      extracurricular: false,
-      healthIssues: false,
-      counselingSessions: 1,
-    },
+    socioeconomic: { familyIncome: "Low", parentsEducation: "High School", distanceFromCollege: 18, transportation: "Public", internetAvailability: true, scholarship: true },
+    behavioral: { studyHours: 8, extracurricular: false, healthIssues: false, counselingSessions: 1 },
     riskStatus: "Medium",
     riskConfidence: 68,
-    riskReasons: [
-      "Attendance is 71%, which is below the mandatory 75% regulatory warning limit.",
-      "Active backlog in 5th Semester Computer Networks course.",
-      "Weekly self-study hours (8 hours) are lower than average for 6th semester workloads.",
-    ],
-    recommendations: [
-      "Enroll in the upcoming CS-301 remedial bootcamps.",
-      "Establish an Attendance Improvement Commitment with Academic Mentor.",
-      "Utilize public transit commute hours for lightweight reading or lecture review.",
-    ],
+    riskReasons: ["Attendance is 71%, which is below the mandatory 75% regulatory warning limit.", "Active backlog in 5th Semester Computer Networks course.", "Weekly self-study hours (8 hours) are lower than average for 6th semester workloads."],
+    recommendations: ["Enroll in the upcoming CS-301 remedial bootcamps.", "Establish an Attendance Improvement Commitment with Academic Mentor.", "Utilize public transit commute hours for lightweight reading or lecture review."],
   },
   {
     rollNumber: "EE-2026-105",
@@ -119,34 +83,12 @@ const students = [
     assignmentsTotal: 10,
     backlogs: 3,
     practicalMarks: 45,
-    socioeconomic: {
-      familyIncome: "Low",
-      parentsEducation: "None",
-      distanceFromCollege: 25,
-      transportation: "Public",
-      internetAvailability: false,
-      scholarship: false,
-    },
-    behavioral: {
-      studyHours: 4,
-      extracurricular: false,
-      healthIssues: true,
-      counselingSessions: 2,
-    },
+    socioeconomic: { familyIncome: "Low", parentsEducation: "None", distanceFromCollege: 25, transportation: "Public", internetAvailability: false, scholarship: false },
+    behavioral: { studyHours: 4, extracurricular: false, healthIssues: true, counselingSessions: 2 },
     riskStatus: "High",
     riskConfidence: 89,
-    riskReasons: [
-      "Critical attendance level of 54% due to long transit distance and documented health issues.",
-      "Internal test average (38%) is below the passing mark of 40%.",
-      "Accumulated 3 active academic backlogs, increasing friction for graduation.",
-      "Lack of internet access at home prevents study material downloads.",
-    ],
-    recommendations: [
-      "Immediate psychiatric/medical and academic counseling review.",
-      "Schedule emergency parent-teacher meeting to address structural absenteeism.",
-      "Apply for the institutional offline scholarship program and student loan assistance.",
-      "Provide preloaded physical tablet and learning guides from college library.",
-    ],
+    riskReasons: ["Critical attendance level of 54% due to long transit distance and documented health issues.", "Internal test average (38%) is below the passing mark of 40%.", "Accumulated 3 active academic backlogs, increasing friction for graduation.", "Lack of internet access at home prevents study material downloads."],
+    recommendations: ["Immediate psychiatric/medical and academic counseling review.", "Schedule emergency parent-teacher meeting to address structural absenteeism.", "Apply for the institutional offline scholarship program and student loan assistance.", "Provide preloaded physical tablet and learning guides from college library."],
   },
   {
     rollNumber: "ME-2026-088",
@@ -160,31 +102,12 @@ const students = [
     assignmentsTotal: 10,
     backlogs: 0,
     practicalMarks: 72,
-    socioeconomic: {
-      familyIncome: "Medium",
-      parentsEducation: "High School",
-      distanceFromCollege: 10,
-      transportation: "College Bus",
-      internetAvailability: true,
-      scholarship: false,
-    },
-    behavioral: {
-      studyHours: 12,
-      extracurricular: true,
-      healthIssues: false,
-      counselingSessions: 0,
-    },
+    socioeconomic: { familyIncome: "Medium", parentsEducation: "High School", distanceFromCollege: 10, transportation: "College Bus", internetAvailability: true, scholarship: false },
+    behavioral: { studyHours: 12, extracurricular: true, healthIssues: false, counselingSessions: 0 },
     riskStatus: "Low",
     riskConfidence: 82,
-    riskReasons: [
-      "Regular class attendance at 78%, above warnings.",
-      "Balanced internal marks score of 61%.",
-      "Clean slate with 0 active backlogs.",
-    ],
-    recommendations: [
-      "Join the advanced CAD modeling and robotics design club.",
-      "Focus on improving the final semester project grade to hit 7.5+ CGPA.",
-    ],
+    riskReasons: ["Regular class attendance at 78%, above warnings.", "Balanced internal marks score of 61%.", "Clean slate with 0 active backlogs."],
+    recommendations: ["Join the advanced CAD modeling and robotics design club.", "Focus on improving the final semester project grade to hit 7.5+ CGPA."],
   },
   {
     rollNumber: "IT-2026-015",
@@ -198,80 +121,63 @@ const students = [
     assignmentsTotal: 10,
     backlogs: 2,
     practicalMarks: 58,
-    socioeconomic: {
-      familyIncome: "Low",
-      parentsEducation: "High School",
-      distanceFromCollege: 15,
-      transportation: "Public",
-      internetAvailability: true,
-      scholarship: true,
-    },
-    behavioral: {
-      studyHours: 6,
-      extracurricular: false,
-      healthIssues: false,
-      counselingSessions: 3,
-    },
+    socioeconomic: { familyIncome: "Low", parentsEducation: "High School", distanceFromCollege: 15, transportation: "Public", internetAvailability: true, scholarship: true },
+    behavioral: { studyHours: 6, extracurricular: false, healthIssues: false, counselingSessions: 3 },
     riskStatus: "High",
     riskConfidence: 78,
-    riskReasons: [
-      "Attendance is 62%, failing to meet regulatory academic standards.",
-      "Weak academic performance in internal assessments (45%).",
-      "Two active backlogs in previous semesters.",
-    ],
-    recommendations: [
-      "Mandatory mentor-guided counseling and target-setting session.",
-      "Apply for remedial classes for database systems and algorithms.",
-      "Submit pending assignments through personalized grace extensions.",
-    ],
+    riskReasons: ["Attendance is 62%, failing to meet regulatory academic standards.", "Weak academic performance in internal assessments (45%).", "Two active backlogs in previous semesters."],
+    recommendations: ["Mandatory mentor-guided counseling and target-setting session.", "Apply for remedial classes for database systems and algorithms.", "Submit pending assignments through personalized grace extensions."],
   },
 ];
 
-const interventions = [
-  {
-    id: "int-1",
-    rollNumber: "IT-2026-042",
-    studentName: "Aarav Sharma",
-    type: "Counseling",
-    createdDate: "2026-07-10",
-    remarks: "Student attended the first counseling session. Discussed distance challenges (18km) causing morning attendance issues. Recommended adjusting batch timings where possible.",
-    status: "In Progress",
-    followUpDate: "2026-07-24",
-    improvementPercentage: 15,
-    facultyName: "Dr. Sandeep Kumar",
-  },
-  {
-    id: "int-2",
-    rollNumber: "EE-2026-105",
-    studentName: "Priya Patel",
-    type: "Parent Meeting",
-    createdDate: "2026-07-15",
-    remarks: "Scheduled a joint session with Priya and her parents to discuss severe health-related absenteeism (54%) and lack of home internet study resources.",
-    status: "Pending",
-    followUpDate: "2026-07-21",
-    improvementPercentage: 0,
-    facultyName: "Prof. Anjali Mehta",
-  },
-  {
-    id: "int-3",
-    rollNumber: "IT-2026-015",
-    studentName: "Neha Gupta",
-    type: "Academic Mentoring",
-    createdDate: "2026-06-12",
-    remarks: "Conducted intensive academic mentoring over 4 weeks. Student cleared 1 of her 3 previous backlogs and completed pending practical files. Attendance improved from 50% to 62%.",
-    status: "Completed",
-    followUpDate: "2026-07-10",
-    improvementPercentage: 40,
-    facultyName: "Dr. Sandeep Kumar",
-  },
+const initialInterventions = [
+  { id: "int-1", rollNumber: "IT-2026-042", studentName: "Aarav Sharma", type: "Counseling", createdDate: "2026-07-10", remarks: "Student attended the first counseling session. Discussed distance challenges (18km) causing morning attendance issues. Recommended adjusting batch timings where possible.", status: "In Progress", followUpDate: "2026-07-24", improvementPercentage: 15, facultyName: "Dr. Sandeep Kumar" },
+  { id: "int-2", rollNumber: "EE-2026-105", studentName: "Priya Patel", type: "Parent Meeting", createdDate: "2026-07-15", remarks: "Scheduled a joint session with Priya and her parents to discuss severe health-related absenteeism (54%) and lack of home internet study resources.", status: "Pending", followUpDate: "2026-07-21", improvementPercentage: 0, facultyName: "Prof. Anjali Mehta" },
+  { id: "int-3", rollNumber: "IT-2026-015", studentName: "Neha Gupta", type: "Academic Mentoring", createdDate: "2026-06-12", remarks: "Conducted intensive academic mentoring over 4 weeks. Student cleared 1 of her 3 previous backlogs and completed pending practical files. Attendance improved from 50% to 62%.", status: "Completed", followUpDate: "2026-07-10", improvementPercentage: 40, facultyName: "Dr. Sandeep Kumar" },
 ];
 
-const faculties = [
+const initialFaculties = [
   { id: "fac-1", name: "Dr. Sandeep Kumar", department: "Information Technology", email: "sandeep@academy.edu" },
   { id: "fac-2", name: "Prof. Anjali Mehta", department: "Electrical Engineering", email: "anjali@academy.edu" },
   { id: "fac-3", name: "Prof. Rakesh Sharma", department: "Computer Science", email: "rakesh@academy.edu" },
   { id: "fac-4", name: "Dr. Vikram Joshi", department: "Mechanical Engineering", email: "vikram@academy.edu" },
 ];
+
+async function seedDatabase() {
+  const count = await prisma.faculty.count();
+  if (count === 0) {
+    console.log("Seeding initial mock data to MySQL database with hashed passwords...");
+    
+    // Hash passwords for default users
+    const defaultPasswordHash = await bcrypt.hash("password", 10);
+    
+    // Hash passwords for the 3 distinct admins
+    const princeAdminHash = await bcrypt.hash("prince2006", 10);
+    const abhayAdminHash = await bcrypt.hash("abhay2564", 10);
+    const yashAdminHash = await bcrypt.hash("yash001", 10);
+
+    // Create 3 Admins
+    await prisma.admin.createMany({
+      data: [
+        { email: "admin@prince", password: princeAdminHash, name: "Admin Prince" },
+        { email: "admin@abhay", password: abhayAdminHash, name: "Admin Abhay" },
+        { email: "admin@yash", password: yashAdminHash, name: "Admin Yash" },
+      ]
+    });
+
+    const facultiesWithPwd = initialFaculties.map(f => ({ ...f, password: defaultPasswordHash }));
+    await prisma.faculty.createMany({ data: facultiesWithPwd });
+    
+    for (const student of initialStudents) {
+      await prisma.student.create({ data: { ...student, password: defaultPasswordHash } });
+    }
+    
+    for (const int of initialInterventions) {
+      await prisma.intervention.create({ data: int });
+    }
+    console.log("Database seeded successfully.");
+  }
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
 
@@ -288,14 +194,13 @@ function authenticateToken(req: any, res: any, next: any) {
   });
 }
 
-// Local Rules-based Fallback Risk Predictor (highly accurate, used when Gemini API key is not active)
+// Local Rules-based Fallback Risk Predictor
 function predictStudentRiskLocal(student: any) {
   let riskStatus: "Low" | "Medium" | "High" = "Low";
   let riskConfidence = 50;
   const riskReasons: string[] = [];
   const recommendations: string[] = [];
 
-  // Attendance rules
   if (student.attendance < 60) {
     riskReasons.push(`Critical attendance level (${student.attendance}%) is significantly below the 75% bar.`);
     riskConfidence += 25;
@@ -307,7 +212,6 @@ function predictStudentRiskLocal(student: any) {
     riskConfidence -= 15;
   }
 
-  // Backlogs rules
   if (student.backlogs >= 3) {
     riskReasons.push(`Student has high backlog friction (${student.backlogs} courses active).`);
     riskConfidence += 20;
@@ -319,7 +223,6 @@ function predictStudentRiskLocal(student: any) {
     riskConfidence -= 10;
   }
 
-  // Internal Marks rules
   if (student.internalMarks < 40) {
     riskReasons.push(`Internal test average (${student.internalMarks}%) is failing.`);
     riskConfidence += 20;
@@ -331,24 +234,21 @@ function predictStudentRiskLocal(student: any) {
     riskConfidence -= 15;
   }
 
-  // Study hours rules
-  if (student.behavioral.studyHours < 6) {
+  if (student.behavioral?.studyHours < 6) {
     riskReasons.push(`Sub-optimal study behavior (${student.behavioral.studyHours} hours of weekly self-study).`);
     riskConfidence += 10;
   }
 
-  // Socioeconomic constraints
-  if (student.socioeconomic.familyIncome === "Low") {
+  if (student.socioeconomic?.familyIncome === "Low") {
     riskReasons.push("Belongs to a low-income bracket, potentially requiring part-time work or scholarships.");
     riskConfidence += 8;
   }
 
-  if (!student.socioeconomic.internetAvailability) {
+  if (student.socioeconomic?.internetAvailability === false) {
     riskReasons.push("No persistent internet access at home for remote academic materials.");
     riskConfidence += 12;
   }
 
-  // Final status assignment based on computed score bounds
   if (riskConfidence >= 75 || student.attendance < 60 || student.backlogs >= 3) {
     riskStatus = "High";
     riskConfidence = Math.min(Math.max(riskConfidence, 76), 98);
@@ -360,12 +260,11 @@ function predictStudentRiskLocal(student: any) {
     riskConfidence = Math.min(Math.max(riskConfidence, 15), 54);
   }
 
-  // Standard high quality recommendations
   if (riskStatus === "High") {
     recommendations.push("Arrange immediate counselor consultation.");
     recommendations.push("Schedule a formal parent-mentor meeting to align resources.");
     recommendations.push("Enroll in mandatory remedial modules for backlog courses.");
-    if (student.socioeconomic.familyIncome === "Low") {
+    if (student.socioeconomic?.familyIncome === "Low") {
       recommendations.push("Analyze eligibility for college emergency scholarships and free meals.");
     }
   } else if (riskStatus === "Medium") {
@@ -404,18 +303,18 @@ async function predictStudentRiskGemini(student: any) {
       Practical Grade Average: ${student.practicalMarks}%
       
       SOCIOECONOMIC BACKGROUND:
-      Family Income: ${student.socioeconomic.familyIncome}
-      Parents Education Level: ${student.socioeconomic.parentsEducation}
-      Distance to College: ${student.socioeconomic.distanceFromCollege} km
-      Mode of Transportation: ${student.socioeconomic.transportation}
-      Internet Access at Home: ${student.socioeconomic.internetAvailability ? "Yes" : "No"}
-      Scholarship Recipient: ${student.socioeconomic.scholarship ? "Yes" : "No"}
+      Family Income: ${student.socioeconomic?.familyIncome}
+      Parents Education Level: ${student.socioeconomic?.parentsEducation}
+      Distance to College: ${student.socioeconomic?.distanceFromCollege} km
+      Mode of Transportation: ${student.socioeconomic?.transportation}
+      Internet Access at Home: ${student.socioeconomic?.internetAvailability ? "Yes" : "No"}
+      Scholarship Recipient: ${student.socioeconomic?.scholarship ? "Yes" : "No"}
       
       BEHAVIORAL INDEX:
-      Weekly Self-Study Time: ${student.behavioral.studyHours} hours
-      Extracurricular Activies participation: ${student.behavioral.extracurricular ? "Yes" : "No"}
-      Chronic Health Issues: ${student.behavioral.healthIssues ? "Yes" : "No"}
-      Counseling Sessions attended: ${student.behavioral.counselingSessions}
+      Weekly Self-Study Time: ${student.behavioral?.studyHours} hours
+      Extracurricular Activies participation: ${student.behavioral?.extracurricular ? "Yes" : "No"}
+      Chronic Health Issues: ${student.behavioral?.healthIssues ? "Yes" : "No"}
+      Counseling Sessions attended: ${student.behavioral?.counselingSessions}
       
       Please predict:
       1. riskStatus: "Low" or "Medium" or "High" risk of dropping out.
@@ -459,7 +358,6 @@ async function predictStudentRiskGemini(student: any) {
     const text = response.text;
     if (text) {
       const parsed = JSON.parse(text);
-      // Validate bounds
       if (["Low", "Medium", "High"].includes(parsed.riskStatus)) {
         return parsed;
       }
@@ -477,57 +375,109 @@ async function startServer() {
 
   app.use(express.json());
   app.use(authenticateToken);
+  
+  // Seed database on startup if empty
+  await seedDatabase();
 
   // API Endpoints: State retrieval
-  app.get("/api/state", (req: any, res) => {
-    res.json({
-      students,
-      interventions,
-      faculties,
-      currentUser: req.user || null,
-      isGeminiActive: isGeminiAvailable,
-    });
+  app.get("/api/state", async (req: any, res) => {
+    try {
+      const students = await prisma.student.findMany();
+      const interventions = await prisma.intervention.findMany({ orderBy: { createdDate: 'desc' } });
+      const faculties = await prisma.faculty.findMany();
+      
+      res.json({
+        students: students.map((s: any) => { delete s.password; return s; }),
+        interventions,
+        faculties: faculties.map((f: any) => { delete f.password; return f; }),
+        currentUser: req.user || null,
+        isGeminiActive: isGeminiAvailable,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch state from DB" });
+    }
   });
 
-  // API Endpoints: Login simulation
-  app.post("/api/login", (req, res) => {
+  // API Endpoints: Register
+  app.post("/api/register", async (req, res) => {
     const { email, role, rollNumber, password, name, department } = req.body;
-
-    let user: any = null;
-
-    // Simple role-based login matching
-    if (role === "Administrator") {
-      user = {
-        name: name || "Admin Director",
-        email: email || "admin@academy.edu",
-        role: "Administrator",
-      };
-    } else if (role === "Faculty") {
-      // Find matching faculty or create mock
-      const matched = faculties.find((f) => f.email.toLowerCase() === email?.toLowerCase());
-      user = {
-        name: name || (matched ? matched.name : "Dr. Sandeep Kumar"),
-        email: email || "faculty@academy.edu",
-        role: "Faculty",
-        department: department || (matched ? matched.department : "Information Technology"),
-      };
-    } else if (role === "Student") {
-      const matched = students.find(
-        (s) => s.rollNumber.toLowerCase() === rollNumber?.toLowerCase() || s.name.toLowerCase() === rollNumber?.toLowerCase()
-      );
-      user = {
-        name: name || (matched ? matched.name : "Yash Bhave"),
-        email: email || "student@academy.edu",
-        role: "Student",
-        rollNumber: matched ? matched.rollNumber : (rollNumber || "CS-2026-001"),
-      };
+    try {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      if (role === "Faculty") {
+        const existing = await prisma.faculty.findUnique({ where: { email } });
+        if (existing) return res.status(400).json({ success: false, error: "Email already registered" });
+        
+        await prisma.faculty.create({
+          data: { email, password: hashedPassword, name, department }
+        });
+        res.json({ success: true, message: "Faculty registered successfully" });
+        
+      } else if (role === "Student") {
+        const existing = await prisma.student.findUnique({ where: { rollNumber } });
+        if (existing) return res.status(400).json({ success: false, error: "Roll number already registered" });
+        
+        await prisma.student.create({
+          data: {
+            rollNumber, password: hashedPassword, name, department,
+            semester: 1, attendance: 100, internalMarks: 100, semesterMarks: 10, assignmentsSubmitted: 0, assignmentsTotal: 10, backlogs: 0, practicalMarks: 100,
+            socioeconomic: { familyIncome: "Medium", parentsEducation: "High School", distanceFromCollege: 10, transportation: "Public", internetAvailability: true, scholarship: false },
+            behavioral: { studyHours: 10, extracurricular: false, healthIssues: false, counselingSessions: 0 },
+            riskStatus: "Low", riskConfidence: 10, riskReasons: ["Newly registered student"], recommendations: []
+          }
+        });
+        res.json({ success: true, message: "Student registered successfully" });
+      } else {
+        res.status(400).json({ success: false, error: "Cannot register as Administrator" });
+      }
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, error: "Registration failed" });
     }
+  });
 
-    if (user) {
-      const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
-      res.json({ success: true, user, token });
-    } else {
-      res.status(401).json({ success: false, error: "Authentication failed" });
+  // API Endpoints: Secure Login
+  app.post("/api/login", async (req, res) => {
+    const { email, role, rollNumber, password } = req.body;
+    let user: any = null;
+    let dbPassword = "";
+
+    try {
+      if (role === "Administrator") {
+        const admin = await prisma.admin.findUnique({ where: { email: email?.toLowerCase() || "" } });
+        if (admin) {
+          user = { name: admin.name, email: admin.email, role: "Administrator" };
+          dbPassword = admin.password;
+        }
+      } else if (role === "Faculty") {
+        const faculty = await prisma.faculty.findUnique({ where: { email: email?.toLowerCase() || "" } });
+        if (faculty) {
+          user = { name: faculty.name, email: faculty.email, role: "Faculty", department: faculty.department };
+          dbPassword = faculty.password;
+        }
+      } else if (role === "Student") {
+        const student = await prisma.student.findUnique({ where: { rollNumber: rollNumber || "" } });
+        if (student) {
+          user = { name: student.name, email: student.name, role: "Student", rollNumber: student.rollNumber };
+          dbPassword = student.password;
+        }
+      }
+
+      if (user && dbPassword) {
+        const isMatch = await bcrypt.compare(password, dbPassword);
+        if (isMatch) {
+          const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
+          res.json({ success: true, user, token });
+        } else {
+          res.status(401).json({ success: false, error: "Invalid password" });
+        }
+      } else {
+        res.status(401).json({ success: false, error: "User not found" });
+      }
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, error: "Login failed" });
     }
   });
 
@@ -538,115 +488,168 @@ async function startServer() {
   // API Endpoints: Student data CRUD
   app.post("/api/students", async (req, res) => {
     const studentData = req.body;
-    let existingIndex = students.findIndex((s) => s.rollNumber === studentData.rollNumber);
 
-    // Predict risk
-    const prediction = await predictStudentRiskGemini(studentData);
-    const enrichedStudent = {
-      ...studentData,
-      riskStatus: prediction.riskStatus,
-      riskConfidence: prediction.riskConfidence,
-      riskReasons: prediction.riskReasons,
-      recommendations: prediction.recommendations,
-    };
+    try {
+      // Predict risk
+      const prediction = await predictStudentRiskGemini(studentData);
+      const enrichedStudent = {
+        ...studentData,
+        riskStatus: prediction.riskStatus,
+        riskConfidence: prediction.riskConfidence,
+        riskReasons: prediction.riskReasons,
+        recommendations: prediction.recommendations,
+      };
 
-    if (existingIndex > -1) {
-      students[existingIndex] = enrichedStudent;
-    } else {
-      students.push(enrichedStudent);
+      const result = await prisma.student.upsert({
+        where: { rollNumber: studentData.rollNumber },
+        update: enrichedStudent,
+        create: {
+          ...enrichedStudent,
+          password: await bcrypt.hash("password", 10), // Default pass if faculty creates student
+        },
+      });
+
+      res.json({ success: true, student: result });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to save student" });
     }
-
-    res.json({ success: true, student: enrichedStudent });
   });
 
   // API Endpoints: Force recalculate/predict a student's risk using live AI
   app.post("/api/students/predict", async (req, res) => {
     const { rollNumber } = req.body;
-    const student = students.find((s) => s.rollNumber === rollNumber);
-    if (!student) {
-      return res.status(404).json({ error: "Student not found" });
+    try {
+      const student = await prisma.student.findUnique({ where: { rollNumber } });
+      if (!student) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+
+      const prediction = await predictStudentRiskGemini(student);
+      
+      const updated = await prisma.student.update({
+        where: { rollNumber },
+        data: {
+          riskStatus: prediction.riskStatus,
+          riskConfidence: prediction.riskConfidence,
+          riskReasons: prediction.riskReasons,
+          recommendations: prediction.recommendations,
+        }
+      });
+
+      res.json({ success: true, student: updated });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to predict student risk" });
     }
-
-    const prediction = await predictStudentRiskGemini(student);
-    student.riskStatus = prediction.riskStatus;
-    student.riskConfidence = prediction.riskConfidence;
-    student.riskReasons = prediction.riskReasons;
-    student.recommendations = prediction.recommendations;
-
-    res.json({ success: true, student });
   });
 
   // API Endpoints: Add new interventions
-  app.post("/api/interventions", (req: any, res) => {
+  app.post("/api/interventions", async (req: any, res) => {
     const { rollNumber, type, remarks, followUpDate, facultyName } = req.body;
-    const student = students.find((s) => s.rollNumber === rollNumber);
+    
+    try {
+      const student = await prisma.student.findUnique({ where: { rollNumber } });
+      if (!student) {
+        return res.status(404).json({ error: "Student not found" });
+      }
 
-    if (!student) {
-      return res.status(404).json({ error: "Student not found" });
+      const newIntervention = await prisma.intervention.create({
+        data: {
+          rollNumber,
+          studentName: student.name,
+          type,
+          createdDate: new Date().toISOString().split("T")[0],
+          remarks,
+          status: "Pending",
+          followUpDate,
+          improvementPercentage: 0,
+          facultyName: facultyName || req.user?.name || "Dr. Sandeep Kumar",
+        }
+      });
+
+      res.json({ success: true, intervention: newIntervention });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to create intervention" });
     }
-
-    const newIntervention = {
-      id: `int-${Date.now()}`,
-      rollNumber,
-      studentName: student.name,
-      type,
-      createdDate: new Date().toISOString().split("T")[0],
-      remarks,
-      status: "Pending" as const,
-      followUpDate,
-      improvementPercentage: 0,
-      facultyName: facultyName || req.user?.name || "Dr. Sandeep Kumar",
-    };
-
-    interventions.unshift(newIntervention);
-    res.json({ success: true, intervention: newIntervention });
   });
 
   // API Endpoints: Update existing interventions
-  app.patch("/api/interventions/:id", (req, res) => {
+  app.patch("/api/interventions/:id", async (req, res) => {
     const { id } = req.params;
     const { status, remarks, improvementPercentage, followUpDate } = req.body;
 
-    const matchedIndex = interventions.findIndex((i) => i.id === id);
-    if (matchedIndex === -1) {
-      return res.status(404).json({ error: "Intervention not found" });
-    }
+    try {
+      const item = await prisma.intervention.findUnique({ where: { id } });
+      if (!item) {
+        return res.status(404).json({ error: "Intervention not found" });
+      }
 
-    const item = interventions[matchedIndex];
-    if (status) item.status = status;
-    if (remarks) item.remarks = remarks;
-    if (improvementPercentage !== undefined) {
-      item.improvementPercentage = Number(improvementPercentage);
-      // Let's also simulate attendance and performance improvement if it is completed!
-      if (status === "Completed") {
-        const student = students.find((s) => s.rollNumber === item.rollNumber);
+      const updateData: any = {};
+      if (status) updateData.status = status;
+      if (remarks) updateData.remarks = remarks;
+      if (followUpDate) updateData.followUpDate = followUpDate;
+      if (improvementPercentage !== undefined) {
+        updateData.improvementPercentage = Number(improvementPercentage);
+      }
+
+      const updatedIntervention = await prisma.intervention.update({
+        where: { id },
+        data: updateData
+      });
+
+      // Simulate attendance and performance improvement if completed
+      if (status === "Completed" && improvementPercentage !== undefined) {
+        const student = await prisma.student.findUnique({ where: { rollNumber: item.rollNumber } });
         if (student) {
-          // Improve stats by progress
           const multiplier = 1 + (Number(improvementPercentage) / 100) * 0.15;
-          student.attendance = Math.min(Math.round(student.attendance * multiplier), 98);
-          student.internalMarks = Math.min(Math.round(student.internalMarks * multiplier), 95);
-          student.semesterMarks = Math.min(Number((student.semesterMarks * (1 + (Number(improvementPercentage) / 100) * 0.08)).toFixed(2)), 9.8);
+          const newAttendance = Math.min(Math.round(student.attendance * multiplier), 98);
+          const newInternalMarks = Math.min(Math.round(student.internalMarks * multiplier), 95);
+          const newSemesterMarks = Math.min(Number((student.semesterMarks * (1 + (Number(improvementPercentage) / 100) * 0.08)).toFixed(2)), 9.8);
+          let newBacklogs = student.backlogs;
           if (student.backlogs > 0 && Math.random() > 0.4) {
-            student.backlogs -= 1;
+            newBacklogs -= 1;
           }
-          // Recalculate risk on completed intervention!
-          const localRecalc = predictStudentRiskLocal(student);
-          student.riskStatus = localRecalc.riskStatus;
-          student.riskConfidence = localRecalc.riskConfidence;
-          student.riskReasons = localRecalc.riskReasons;
-          student.recommendations = localRecalc.recommendations;
+
+          const localRecalc = predictStudentRiskLocal({ ...student, attendance: newAttendance, internalMarks: newInternalMarks, semesterMarks: newSemesterMarks, backlogs: newBacklogs });
+          
+          await prisma.student.update({
+            where: { rollNumber: item.rollNumber },
+            data: {
+              attendance: newAttendance,
+              internalMarks: newInternalMarks,
+              semesterMarks: newSemesterMarks,
+              backlogs: newBacklogs,
+              riskStatus: localRecalc.riskStatus,
+              riskConfidence: localRecalc.riskConfidence,
+              riskReasons: localRecalc.riskReasons,
+              recommendations: localRecalc.recommendations,
+            }
+          });
         }
       }
-    }
-    if (followUpDate) item.followUpDate = followUpDate;
 
-    res.json({ success: true, intervention: item });
+      res.json({ success: true, intervention: updatedIntervention });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to update intervention" });
+    }
   });
 
   // API Endpoints: System Reset (returns to default)
-  app.post("/api/reset", (req, res) => {
-    // Reset state logic
-    res.json({ success: true });
+  app.post("/api/reset", async (req, res) => {
+    try {
+      await prisma.intervention.deleteMany({});
+      await prisma.student.deleteMany({});
+      await prisma.faculty.deleteMany({});
+      await prisma.admin.deleteMany({});
+      await seedDatabase();
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to reset database" });
+    }
   });
 
   // Vite middleware setup for Development & Production serving
