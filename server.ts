@@ -8,6 +8,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
 
 dotenv.config();
 
@@ -272,8 +273,20 @@ const faculties = [
   { id: "fac-4", name: "Dr. Vikram Joshi", department: "Mechanical Engineering", email: "vikram@academy.edu" },
 ];
 
-// Session Tracking (In-memory)
-let activeUser: any = null;
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
+
+// Middleware to authenticate JWT
+function authenticateToken(req: any, res: any, next: any) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) return next();
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (err) return next();
+    req.user = user;
+    next();
+  });
+}
 
 // Local Rules-based Fallback Risk Predictor (highly accurate, used when Gemini API key is not active)
 function predictStudentRiskLocal(student: any) {
@@ -463,55 +476,62 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(authenticateToken);
 
   // API Endpoints: State retrieval
-  app.get("/api/state", (req, res) => {
+  app.get("/api/state", (req: any, res) => {
     res.json({
       students,
       interventions,
       faculties,
-      currentUser: activeUser,
+      currentUser: req.user || null,
       isGeminiActive: isGeminiAvailable,
     });
   });
 
   // API Endpoints: Login simulation
   app.post("/api/login", (req, res) => {
-    const { email, role, rollNumber, password } = req.body;
+    const { email, role, rollNumber, password, name, department } = req.body;
+
+    let user: any = null;
 
     // Simple role-based login matching
     if (role === "Administrator") {
-      activeUser = {
-        name: "Admin Director",
+      user = {
+        name: name || "Admin Director",
         email: email || "admin@academy.edu",
         role: "Administrator",
       };
     } else if (role === "Faculty") {
       // Find matching faculty or create mock
       const matched = faculties.find((f) => f.email.toLowerCase() === email?.toLowerCase());
-      activeUser = {
-        name: matched ? matched.name : "Dr. Sandeep Kumar",
+      user = {
+        name: name || (matched ? matched.name : "Dr. Sandeep Kumar"),
         email: email || "faculty@academy.edu",
         role: "Faculty",
-        department: matched ? matched.department : "Information Technology",
+        department: department || (matched ? matched.department : "Information Technology"),
       };
     } else if (role === "Student") {
       const matched = students.find(
         (s) => s.rollNumber.toLowerCase() === rollNumber?.toLowerCase() || s.name.toLowerCase() === rollNumber?.toLowerCase()
       );
-      activeUser = {
-        name: matched ? matched.name : "Yash Bhave",
+      user = {
+        name: name || (matched ? matched.name : "Yash Bhave"),
         email: email || "student@academy.edu",
         role: "Student",
-        rollNumber: matched ? matched.rollNumber : "CS-2026-001",
+        rollNumber: matched ? matched.rollNumber : (rollNumber || "CS-2026-001"),
       };
     }
 
-    res.json({ success: true, user: activeUser });
+    if (user) {
+      const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
+      res.json({ success: true, user, token });
+    } else {
+      res.status(401).json({ success: false, error: "Authentication failed" });
+    }
   });
 
   app.post("/api/logout", (req, res) => {
-    activeUser = null;
     res.json({ success: true });
   });
 
@@ -557,7 +577,7 @@ async function startServer() {
   });
 
   // API Endpoints: Add new interventions
-  app.post("/api/interventions", (req, res) => {
+  app.post("/api/interventions", (req: any, res) => {
     const { rollNumber, type, remarks, followUpDate, facultyName } = req.body;
     const student = students.find((s) => s.rollNumber === rollNumber);
 
@@ -575,7 +595,7 @@ async function startServer() {
       status: "Pending" as const,
       followUpDate,
       improvementPercentage: 0,
-      facultyName: facultyName || activeUser?.name || "Dr. Sandeep Kumar",
+      facultyName: facultyName || req.user?.name || "Dr. Sandeep Kumar",
     };
 
     interventions.unshift(newIntervention);

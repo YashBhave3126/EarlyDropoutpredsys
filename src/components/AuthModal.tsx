@@ -9,7 +9,7 @@ import { Shield, User, GraduationCap, ArrowLeft, Key, Lock, Mail, Users } from "
 
 interface AuthModalProps {
   onClose: () => void;
-  onLoginSuccess: (user: any) => void;
+  onLoginSuccess: (user: any, token: string) => void;
   initialRole?: string;
 }
 
@@ -58,7 +58,7 @@ export default function AuthModal({ onClose, onLoginSuccess, initialRole }: Auth
 
       const data = await response.json();
       if (data.success) {
-        onLoginSuccess(data.user);
+        onLoginSuccess(data.user, data.token);
       } else {
         alert("Authentication failed.");
       }

@@ -27,11 +27,15 @@ export default function App() {
   const [isGeminiActive, setIsGeminiActive] = useState(false);
   const [authInitialRole, setAuthInitialRole] = useState<string | undefined>(undefined);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
 
   // Sync state with server in-memory database
   const fetchState = async () => {
     try {
-      const res = await fetch("/api/state");
+      const currentToken = localStorage.getItem("token");
+      const res = await fetch("/api/state", {
+        headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+      });
       const data = await res.json();
       setStudents(data.students || []);
       setInterventions(data.interventions || []);
@@ -66,7 +70,9 @@ export default function App() {
     handleNavigate("landing");
   };
 
-  const handleLoginSuccess = (user: any) => {
+  const handleLoginSuccess = (user: any, newToken: string) => {
+    localStorage.setItem("token", newToken);
+    setToken(newToken);
     setCurrentUser(user);
     setView("dashboard");
     fetchState();
@@ -75,6 +81,8 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await fetch("/api/logout", { method: "POST" });
+      localStorage.removeItem("token");
+      setToken(null);
       setCurrentUser(null);
       handleNavigate("landing");
       fetchState();
@@ -86,9 +94,13 @@ export default function App() {
   // Student API Submit
   const handleStudentSubmit = async (studentData: any) => {
     try {
+      const currentToken = localStorage.getItem("token");
       await fetch("/api/students", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
+        },
         body: JSON.stringify(studentData),
       });
       await fetchState();
@@ -100,9 +112,13 @@ export default function App() {
   // Intervention API Submit
   const handleInterventionSubmit = async (interventionData: any) => {
     try {
+      const currentToken = localStorage.getItem("token");
       await fetch("/api/interventions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
+        },
         body: JSON.stringify(interventionData),
       });
       await fetchState();
@@ -114,9 +130,13 @@ export default function App() {
   // Intervention Status Patch API
   const handleInterventionUpdate = async (id: string, updateData: any) => {
     try {
+      const currentToken = localStorage.getItem("token");
       await fetch(`/api/interventions/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
+        },
         body: JSON.stringify(updateData),
       });
       await fetchState();
@@ -128,9 +148,13 @@ export default function App() {
   // Trigger prediction manual recalculation via API
   const handleTriggerPrediction = async (rollNumber: string) => {
     try {
+      const currentToken = localStorage.getItem("token");
       await fetch("/api/students/predict", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
+        },
         body: JSON.stringify({ rollNumber }),
       });
       await fetchState();
@@ -142,7 +166,11 @@ export default function App() {
   // Reset database values
   const handleResetDatabase = async () => {
     try {
-      await fetch("/api/reset", { method: "POST" });
+      const currentToken = localStorage.getItem("token");
+      await fetch("/api/reset", { 
+        method: "POST",
+        headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+      });
       await fetchState();
     } catch (err) {
       console.error(err);
