@@ -1,14 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import dotenv from "dotenv";
+import { GEMINI_API_KEY } from "../config";
 
-dotenv.config();
-
-const apiKey = process.env.GEMINI_API_KEY;
-export const isGeminiAvailable = apiKey && apiKey !== "MY_GEMINI_API_KEY" && apiKey.trim() !== "";
+export const isGeminiAvailable = GEMINI_API_KEY !== "" && GEMINI_API_KEY !== "MY_GEMINI_API_KEY";
 
 export const ai = isGeminiAvailable
   ? new GoogleGenAI({
-      apiKey: apiKey,
+      apiKey: GEMINI_API_KEY,
       httpOptions: {
         headers: {
           "User-Agent": "aistudio-build",

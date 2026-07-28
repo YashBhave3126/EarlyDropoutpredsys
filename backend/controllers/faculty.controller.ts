@@ -1,16 +1,14 @@
 import { Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import prisma from "../db";
+import { BCRYPT_ROUNDS } from "../config";
 import { AuthRequest } from "../middleware/auth.middleware";
 
 export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
-  if (req.user?.role !== 'Faculty') {
-    return res.status(403).json({ error: "Forbidden: Only faculty can update their own profile" });
-  }
   const { name, department } = req.body;
 
   try {
-    const faculty = await prisma.faculty.findUnique({ where: { email: req.user.email } });
+    const faculty = await prisma.faculty.findUnique({ where: { email: req.user!.email } });
     if (!faculty) {
       return res.status(404).json({ error: "Faculty not found" });
     }
@@ -20,7 +18,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     if (department) updateData.department = department;
 
     const updated = await prisma.faculty.update({
-      where: { email: req.user.email },
+      where: { email: req.user!.email },
       data: updateData
     });
 
@@ -39,9 +37,7 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: "New password must be at least 6 characters" });
-  }
+  // Validation is now handled by changePasswordSchema in the route middleware
 
   try {
     let dbRecord: any = null;
@@ -63,7 +59,7 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
       return res.status(401).json({ error: "Current password is incorrect" });
     }
 
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
     if (user.role === "Administrator") {
       await prisma.admin.update({ where: { email: user.email }, data: { password: hashedNewPassword } });

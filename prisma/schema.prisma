@@ -59,7 +59,7 @@ model Intervention {
   improvementPercentage Int      @default(0)
   facultyName           String
   
-  student               Student  @relation(fields: [rollNumber], references: [rollNumber])
+  student               Student  @relation(fields: [rollNumber], references: [rollNumber], onDelete: Cascade)
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

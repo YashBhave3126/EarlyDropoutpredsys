@@ -2,20 +2,20 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import prisma from "../db";
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
+import { JWT_SECRET, JWT_EXPIRY, BCRYPT_ROUNDS } from "../config";
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   const { email, role, rollNumber, password, name, department } = req.body;
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
     
     if (role === "Faculty") {
-      const existing = await prisma.faculty.findUnique({ where: { email } });
+      const normalizedEmail = email?.toLowerCase();
+      const existing = await prisma.faculty.findUnique({ where: { email: normalizedEmail } });
       if (existing) return res.status(400).json({ success: false, error: "Email already registered" });
       
       await prisma.faculty.create({
-        data: { email, password: hashedPassword, name, department }
+        data: { email: normalizedEmail, password: hashedPassword, name, department }
       });
       return res.json({ success: true, message: "Faculty registered successfully" });
       
@@ -70,13 +70,15 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     if (user && dbPassword) {
       const isMatch = await bcrypt.compare(password, dbPassword);
       if (isMatch) {
-        const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
+        const token = jwt.sign(user, JWT_SECRET, { expiresIn: JWT_EXPIRY });
         return res.json({ success: true, user, token });
       } else {
-        return res.status(401).json({ success: false, error: "Invalid password" });
+        // Use a generic error message to avoid user enumeration
+        return res.status(401).json({ success: false, error: "Invalid credentials" });
       }
     } else {
-      return res.status(401).json({ success: false, error: "User not found" });
+      // Same generic message — don't reveal whether the user exists or not
+      return res.status(401).json({ success: false, error: "Invalid credentials" });
     }
   } catch (err) {
     next(err);

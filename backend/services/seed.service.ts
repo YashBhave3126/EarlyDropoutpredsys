@@ -1,5 +1,6 @@
 import prisma from "../db";
 import bcrypt from "bcryptjs";
+import { BCRYPT_ROUNDS } from "../config";
 
 // Initial Data for Seeding
 const initialStudents = [
@@ -118,10 +119,10 @@ export async function seedDatabase() {
   if (count === 0) {
     console.log("Seeding initial mock data to MySQL database with hashed passwords...");
     
-    const defaultPasswordHash = await bcrypt.hash("password", 10);
-    const princeAdminHash = await bcrypt.hash("prince2006", 10);
-    const abhayAdminHash = await bcrypt.hash("abhay2564", 10);
-    const yashAdminHash = await bcrypt.hash("yash001", 10);
+    const defaultPasswordHash = await bcrypt.hash("password", BCRYPT_ROUNDS);
+    const princeAdminHash = await bcrypt.hash("prince2006", BCRYPT_ROUNDS);
+    const abhayAdminHash = await bcrypt.hash("abhay2564", BCRYPT_ROUNDS);
+    const yashAdminHash = await bcrypt.hash("yash001", BCRYPT_ROUNDS);
 
     await prisma.admin.createMany({
       data: [

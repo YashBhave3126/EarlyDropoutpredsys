@@ -1,13 +1,12 @@
 import { Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import prisma from "../db";
+import { BCRYPT_ROUNDS } from "../config";
 import { predictStudentRiskGemini } from "../services/ai.service";
 import { AuthRequest } from "../middleware/auth.middleware";
 
 export const upsertStudent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
-  if (req.user?.role !== 'Administrator' && req.user?.role !== 'Faculty') {
-    return res.status(403).json({ error: "Forbidden: Insufficient privileges" });
-  }
   const studentData = req.body;
 
   try {
@@ -20,25 +19,42 @@ export const upsertStudent = async (req: AuthRequest, res: Response, next: NextF
       recommendations: prediction.recommendations,
     };
 
-    const result = await prisma.student.upsert({
-      where: { rollNumber: studentData.rollNumber },
-      update: enrichedStudent,
-      create: {
-        ...enrichedStudent,
-        password: await bcrypt.hash("password", 10), // Default pass
-      },
-    });
+    // Check if the student already exists to decide create vs update
+    const existing = await prisma.student.findUnique({ where: { rollNumber: studentData.rollNumber } });
 
-    res.json({ success: true, student: result });
+    if (existing) {
+      // Update — don't touch the password
+      const result = await prisma.student.update({
+        where: { rollNumber: studentData.rollNumber },
+        data: enrichedStudent,
+      });
+      res.json({ success: true, student: result });
+    } else {
+      // Create — generate a random temporary password
+      const tempPassword = crypto.randomBytes(6).toString("hex"); // 12-char random password
+      const hashedPassword = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+
+      const result = await prisma.student.create({
+        data: {
+          ...enrichedStudent,
+          password: hashedPassword,
+        },
+      });
+
+      // Return the temp password so the admin can share it with the student
+      res.json({ 
+        success: true, 
+        student: result, 
+        tempPassword,
+        message: `Student created. Temporary password: ${tempPassword} — please share this with the student securely.`
+      });
+    }
   } catch (err) {
     next(err);
   }
 };
 
 export const predictStudent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
-  if (req.user?.role !== 'Administrator' && req.user?.role !== 'Faculty') {
-    return res.status(403).json({ error: "Forbidden: Insufficient privileges" });
-  }
   const { rollNumber } = req.body;
   try {
     const student = await prisma.student.findUnique({ where: { rollNumber } });
@@ -65,9 +81,6 @@ export const predictStudent = async (req: AuthRequest, res: Response, next: Next
 };
 
 export const deleteStudent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
-  if (req.user?.role !== 'Administrator') {
-    return res.status(403).json({ error: "Forbidden: Only Administrators can delete students" });
-  }
   const { rollNumber } = req.params;
   try {
     const student = await prisma.student.findUnique({ where: { rollNumber } });
@@ -75,8 +88,7 @@ export const deleteStudent = async (req: AuthRequest, res: Response, next: NextF
       return res.status(404).json({ error: "Student not found" });
     }
 
-    // Delete related interventions first (cascade)
-    await prisma.intervention.deleteMany({ where: { rollNumber } });
+    // onDelete: Cascade in Prisma schema automatically removes related interventions
     await prisma.student.delete({ where: { rollNumber } });
 
     res.json({ success: true, message: `Student ${rollNumber} deleted successfully` });

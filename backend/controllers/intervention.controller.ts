@@ -4,15 +4,17 @@ import { AuthRequest } from "../middleware/auth.middleware";
 import { predictStudentRiskLocal } from "../services/ai.service";
 
 export const createIntervention = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
-  if (req.user?.role !== 'Administrator' && req.user?.role !== 'Faculty') {
-    return res.status(403).json({ error: "Forbidden: Insufficient privileges" });
-  }
   const { rollNumber, type, remarks, followUpDate, facultyName } = req.body;
   
   try {
     const student = await prisma.student.findUnique({ where: { rollNumber } });
     if (!student) {
       return res.status(404).json({ error: "Student not found" });
+    }
+
+    const parsedFollowUpDate = new Date(followUpDate);
+    if (isNaN(parsedFollowUpDate.getTime())) {
+      return res.status(400).json({ error: "Invalid follow-up date format" });
     }
 
     const newIntervention = await prisma.intervention.create({
@@ -23,9 +25,9 @@ export const createIntervention = async (req: AuthRequest, res: Response, next: 
         createdDate: new Date(),
         remarks,
         status: "Pending",
-        followUpDate: new Date(followUpDate),
+        followUpDate: parsedFollowUpDate,
         improvementPercentage: 0,
-        facultyName: facultyName || req.user?.name || "Dr. Sandeep Kumar",
+        facultyName: facultyName || req.user?.name || "Unknown Faculty",
       }
     });
 
@@ -36,9 +38,6 @@ export const createIntervention = async (req: AuthRequest, res: Response, next: 
 };
 
 export const updateIntervention = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
-  if (req.user?.role !== 'Administrator' && req.user?.role !== 'Faculty') {
-    return res.status(403).json({ error: "Forbidden: Insufficient privileges" });
-  }
   const { id } = req.params;
   const { status, remarks, improvementPercentage, followUpDate } = req.body;
 
@@ -51,7 +50,13 @@ export const updateIntervention = async (req: AuthRequest, res: Response, next: 
     const updateData: any = {};
     if (status) updateData.status = status;
     if (remarks) updateData.remarks = remarks;
-    if (followUpDate) updateData.followUpDate = followUpDate;
+    if (followUpDate) {
+      const parsedDate = new Date(followUpDate);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ error: "Invalid follow-up date format" });
+      }
+      updateData.followUpDate = parsedDate;
+    }
     if (improvementPercentage !== undefined) {
       updateData.improvementPercentage = Number(improvementPercentage);
     }

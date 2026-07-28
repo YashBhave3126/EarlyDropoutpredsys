@@ -55,7 +55,10 @@ export const interventionSchema = z.object({
   rollNumber: z.string().min(1, "Roll number is required"),
   type: z.string().min(1, "Intervention type is required"),
   remarks: z.string().min(1, "Remarks are required"),
-  followUpDate: z.string().min(1, "Follow-up date is required"),
+  followUpDate: z.string().min(1, "Follow-up date is required").refine(
+    (val) => !isNaN(Date.parse(val)),
+    { message: "Follow-up date must be a valid date string (e.g., 2026-08-15)" }
+  ),
   facultyName: z.string().optional()
 });
 
@@ -63,5 +66,13 @@ export const updateInterventionSchema = z.object({
   status: z.enum(["Pending", "In Progress", "Completed"]).optional(),
   remarks: z.string().optional(),
   improvementPercentage: z.number().min(0).max(100).optional(),
-  followUpDate: z.string().optional()
+  followUpDate: z.string().refine(
+    (val) => !isNaN(Date.parse(val)),
+    { message: "Follow-up date must be a valid date string" }
+  ).optional()
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(6, "New password must be at least 6 characters"),
 });
